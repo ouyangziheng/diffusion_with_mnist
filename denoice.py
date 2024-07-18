@@ -19,13 +19,14 @@ def backward_denoise(model, batch_x_t, batch_cls):
     alphas = alphas.to(DEVICE)
     alphas_cum = alphas_cum.to(DEVICE)
     variance = variance.to(DEVICE)
+    batch_cls=batch_cls.to(DEVICE)
 
 
     with torch.no_grad():
         for t in range(T - 1, -1, -1):
             batch_t = torch.full((batch_x_t.size(0),), t).to(DEVICE)
             # 预测x_t时刻的噪音
-            batch_predict_noise_t = model(batch_x_t, batch_t)
+            batch_predict_noise_t = model(batch_x_t, batch_t, batch_cls)
 
             # 生成t-1时刻的图像
             shape = (batch_x_t.size(0), 1, 1, 1)
@@ -52,7 +53,7 @@ def backward_denoise(model, batch_x_t, batch_cls):
 
 if __name__ == "__main__":
     # 加载模型
-    model = torch.load("model.pt")
+    model = torch.load("/home/ubuntu/oyzh/diff/model.pt")
 
     # 打印模型结构
     print(model)
@@ -60,7 +61,7 @@ if __name__ == "__main__":
     # 生成噪音图
     batch_size = 10
     batch_x_t = torch.randn(size=(batch_size, 1, img_size, img_size))  # (5,1,48,48)
-    batch_cls = torch.arange(start=0, end=10, dtype=torch.long)  # 引导词promot
+    batch_cls = torch.arange(start=0, end=10, dtype=torch.long)  # promot
     # 逐步去噪得到原图
     steps = backward_denoise(model, batch_x_t, batch_cls)
     # 绘制数量
@@ -77,6 +78,7 @@ if __name__ == "__main__":
             plt.subplot(batch_size, num_imgs, b * num_imgs + i + 1)
             plt.imshow(final_img)
     plt.show()
+    
 # 保存图片
     output_dir = 'output_images'
     if not os.path.exists(output_dir):

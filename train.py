@@ -1,44 +1,50 @@
-import os
-import torch
+from config import *
 from torch.utils.data import DataLoader
 from data import train_dataset
-from config import *
-import unet
-from torch import nn
+from unet import UNet
 from diffusion import forward
+import torch
+from torch import nn
+import os
 
 epochs = 200
-batch_size = 800
+BATCH_SIZE = 400
 
-dataloader = DataLoader(
-    train_dataset, batch_size, shuffle=True, num_workers=4, persistent_workers=True
-)
+dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
+                        num_workers=4, persistent_workers=True, shuffle=True)   # 数据加载器
 
-# 创建模型实例，并移动到指定设备
-model = unet.unet(1).to(DEVICE)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-loss_fn = nn.L1Loss()
+model = UNet(1).to(DEVICE)   # 噪音预测模型
 
-model.train()
-for epoch in range(epochs):
-    epoch_loss = 0  # 用于记录每个epoch的总损失
-    for batch_x, _ in dataloader:
-        batch_x = batch_x.to(DEVICE) * 2 - 1
-        batch_t = torch.randint(0, T, (batch_x.size(0),)).to(DEVICE)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)  # 优化器
+loss_fn = nn.L1Loss()  # 损失函数(绝对值误差均值)
 
-        batch_x_t, batch_noise = forward(batch_x, batch_t)
 
-        batch_predict_t = model(batch_x_t, batch_t)
-        loss = loss_fn(batch_predict_t, batch_noise)
+if __name__ == '__main__':
+    model.train()
+    n_iter = 0
+    for epoch in range(epochs):
+        last_loss = 0
+        for batch_x, batch_cls in dataloader:
+            # 图像的像素范围转换到[-1,1],和高斯分布对应
+            batch_x = batch_x.to(DEVICE)*2-1
+            # 引导分类ID
+            batch_cls = batch_cls.to(DEVICE)
+            # 为每张图片生成随机t时刻
+            batch_t = torch.randint(0, T, (batch_x.size(0),)).to(DEVICE)
+            # 生成t时刻的加噪图片和对应噪音
+            batch_x_t, batch_noise_t = forward(batch_x, batch_t)
+            # 模型预测t时刻的噪音
+            batch_predict_t = model(batch_x_t, batch_t, batch_cls)
+            # 求损失
+            loss = loss_fn(batch_predict_t, batch_noise_t)
+            # 优化参数
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            last_loss = loss.item()
+            n_iter += 1
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        
-        # 累加batch损失
-        epoch_loss += loss.item()
-
-    print(f'Epoch [{epoch+1}/{epochs}], Loss: {epoch_loss:.4f}')  # 输出每个epoch的平均损失
-    torch.save(model, 'model.pt.tmp')
-    os.replace('model.pt.tmp', 'model.pt')
+        print('epoch:{} loss={}'.format(epoch, last_loss))
+        torch.save(model, 'model.pt.tmp')
+        os.replace('model.pt.tmp', '/home/ubuntu/oyzh/diff/model.pt')
