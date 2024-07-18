@@ -17,8 +17,7 @@ dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
 model = UNet(1).to(DEVICE)   # 噪音预测模型
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)  # 优化器
-loss_fn = nn.L1Loss()  # 损失函数(绝对值误差均值)
-
+loss_fn = nn.L1Loss()  # 损失函数
 
 if __name__ == '__main__':
     model.train()

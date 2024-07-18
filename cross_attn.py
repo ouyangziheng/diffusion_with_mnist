@@ -22,8 +22,11 @@ class CrossAttention(nn.Module):
         )
         self.norm2 = nn.LayerNorm(channel)
 
-    def forward(self, x, cls_emb):  # x:(batch_size,channel,width,height), cls_emb:(batch_size,cls_emb_size)
-        x = x.permute(0, 2, 3, 1)  # x:(batch_size,width,height,channel)
+    def forward(self, x, cls_emb):  
+        # x:(batch_size,channel,width,height)
+        # cls_emb:(batch_size,cls_emb_size)
+        x = x.permute(0, 2, 3, 1)  
+        # x:(batch_size,width,height,channel)
 
         Q = self.w_q(x)  # Q: (batch_size,width,height,qsize)
         Q = Q.view(
